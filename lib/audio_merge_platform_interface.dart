@@ -23,7 +23,10 @@ abstract class AudioMergePlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<void> listen({dynamic Function(int)? onProgress}) {
+  Future<void> listen({
+    dynamic Function(int)? onProgress,
+    dynamic Function(String)? onSuccess,
+  }) {
     throw UnimplementedError('listen() has not been implemented.');
   }
 

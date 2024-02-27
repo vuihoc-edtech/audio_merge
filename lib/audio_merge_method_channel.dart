@@ -11,11 +11,16 @@ class MethodChannelAudioMerge extends AudioMergePlatform {
   final methodChannel = const MethodChannel('audio_merge');
 
   @override
-  Future<void> listen({dynamic Function(int)? onProgress}) async {
+  Future<void> listen({
+    dynamic Function(int)? onProgress,
+    dynamic Function(String)? onSuccess,
+  }) async {
     methodChannel.setMethodCallHandler((call) {
       switch (call.method) {
         case 'ON_PROGRESS':
           return onProgress?.call(call.arguments);
+        case 'ON_SUCCESS':
+          return onSuccess?.call(call.arguments);
         default:
           return Future(() => null);
       }

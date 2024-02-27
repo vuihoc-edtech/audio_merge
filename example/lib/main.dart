@@ -113,8 +113,7 @@ class _MyAppState extends State<MyApp> {
                       },
                     }
                   });
-                  log('${sw.elapsedMicroseconds}', name: '_MyAppState.build');
-                  ;
+                  log('${sw.elapsed.inSeconds}', name: 'TIME TAKEN');
                   sw.stop();
                   setState(() => _outputPath = result ?? '');
                 },

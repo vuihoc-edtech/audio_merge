@@ -74,12 +74,12 @@ class AudioMergePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         /// Set the sample rate, bit rate, channel count and mixing type
         audioMixer.setSampleRate(44100)
         audioMixer.setBitRate(128000)
-        audioMixer.setChannelCount(2)
+        audioMixer.setChannelCount(1)
         audioMixer.mixingType = AudioMixer.MixingType.PARALLEL
 
         // Main audio mixer logic
         val inputBG = GeneralAudioInput(context, Uri.parse(background), null)
-        inputBG.volume = 0.7f //Optional
+        inputBG.volume = 1.0f //Optional
         audioMixer.addDataSource(inputBG)
         // Add all the audio script to the audio mixer
         script?.forEach {
@@ -95,9 +95,6 @@ class AudioMergePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             }
 
             override fun onEnd() {
-                // TODO: Show a success message, remove this on completion
-                Toast.makeText(context, "Success!!!", Toast.LENGTH_SHORT).show()
-
                 callFlutterMethod(Method.ON_SUCCESS, outputPath)
                 audioMixer.release()
             }
