@@ -14,7 +14,7 @@ abstract class AudioMergePlatform extends PlatformInterface {
   ///
   /// Defaults to [MethodChannelAudioMerge].
   static AudioMergePlatform get instance => _instance;
-  
+
   /// Platform-specific implementations should set this with their own
   /// platform-specific class that extends [AudioMergePlatform] when
   /// they register themselves.
@@ -23,7 +23,15 @@ abstract class AudioMergePlatform extends PlatformInterface {
     _instance = instance;
   }
 
+  Future<void> listen({dynamic Function(int)? onProgress}) {
+    throw UnimplementedError('listen() has not been implemented.');
+  }
+
   Future<String?> getPlatformVersion() {
     throw UnimplementedError('platformVersion() has not been implemented.');
+  }
+
+  Future<String?> mixAudio(Map<String, dynamic> data) {
+    throw UnimplementedError('mixAudio() has not been implemented.');
   }
 }

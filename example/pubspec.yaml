@@ -31,6 +31,8 @@ dependencies:
   cupertino_icons: ^1.0.2
 
   just_audio:
+  file_picker:
+  path_provider:
 
 dev_dependencies:
   flutter_test:

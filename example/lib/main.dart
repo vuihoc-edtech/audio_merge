@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:audio_merge/audio_merge.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,39 +19,25 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
   final _audioMergePlugin = AudioMerge();
+  String _outputPath = '';
+  int _progress = 0;
 
   @override
   void initState() {
     super.initState();
     initPlatformState();
+    _audioMergePlugin.listen(
+      onProgress: (p) => mounted ? setState(() => _progress = p) : null,
+    );
+    getApplicationDocumentsDirectory().then((value) {
+      _outputPath = '${value.path}/output.mp3';
+    });
   }
 
-  // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
-    String platformVersion;
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    // We also handle the message potentially returning null.
-    try {
-      platformVersion = await _audioMergePlugin.getPlatformVersion() ??
-          'Unknown platform version';
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
-    }
-
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    setState(() {
-      _platformVersion = platformVersion;
-    });
     player.positionStream.listen((event) {
-      setState(() {
-        duration = event;
-      });
+      setState(() => duration = event);
     });
   }
 
@@ -57,58 +45,144 @@ class _MyAppState extends State<MyApp> {
 
   final player = AudioPlayer();
 
+  String? background;
+  List<String> voiceOvers = [];
+  final _allowedExtensions = ['mp3', 'wav', 'aac', 'm4a'];
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: const Text('Plugin example app')),
-        body: Center(
+        appBar: AppBar(title: const Text('Audio mixer example')),
+        body: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: 300,
-                child: LinearProgressIndicator(
-                    value: (duration?.inMilliseconds ?? 0) /
-                        (player.duration?.inMilliseconds ?? 1)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(background ?? 'Background Music'),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final result = await FilePicker.platform.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: _allowedExtensions,
+                      );
+                      if (result != null) {
+                        setState(() {
+                          background = result.files.single.path;
+                        });
+                      }
+                    },
+                    child: const Text('Pick Background Music'),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(voiceOvers.join('\n')),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final result = await FilePicker.platform.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: _allowedExtensions,
+                        allowMultiple: true,
+                      );
+
+                      if (result != null) {
+                        setState(() {
+                          voiceOvers =
+                              result.paths.whereType<String>().toList();
+                        });
+                      }
+                    },
+                    child: const Text('Pick Voice Over'),
+                  ),
+                ],
               ),
-              SizedBox(
-                width: 300,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('${duration ?? Duration.zero}'),
-                    Text('${player.duration}'),
-                  ],
-                ),
+              ElevatedButton(
+                onPressed: () async {
+                  final sw = Stopwatch();
+                  sw.start();
+                  final result = await _audioMergePlugin.mixAudio({
+                    "background": background,
+                    "output_path": _outputPath,
+                    "script": {
+                      ...{
+                        for (var e in voiceOvers)
+                          (voiceOvers.indexOf(e) * 3000): e
+                      },
+                    }
+                  });
+                  log('${sw.elapsedMicroseconds}', name: '_MyAppState.build');
+                  ;
+                  sw.stop();
+                  setState(() => _outputPath = result ?? '');
+                },
+                child: Text('Start Mixing $_progress%'),
               ),
-              const SizedBox(height: 100),
+              const Divider(thickness: 2, color: Colors.black, height: 30),
+              Text('OUTPUT:\n$_outputPath'),
+              const SizedBox(height: 10),
+              const Divider(thickness: 2, color: Colors.black, height: 30),
+              _buildIndicator(),
+              _buildDuration(),
+              const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ElevatedButton(
-                    onPressed: () async {
-                      final duration = await player.setFilePath(
-                          '/data/user/0/vn.vuihoc.audio_merge_example/files/audio_mixer_output.mp3');
-                      player.play();
-                    },
-                    child: const Text('Start'),
-                  ),
+                  _buildPlay(),
                   const SizedBox(width: 20),
-                  ElevatedButton(
-                    onPressed: () async {
-                      player.stop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      primary: Colors.red,
-                    ),
-                    child: Text('stop'),
-                  ),
+                  _buildStop(),
                 ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStop() {
+    return ElevatedButton(
+      onPressed: player.stop,
+      style: ElevatedButton.styleFrom(primary: Colors.red),
+      child: const Text('Stop'),
+    );
+  }
+
+  Widget _buildPlay() {
+    return ElevatedButton(
+      onPressed: () async {
+        if (_outputPath.isEmpty) return;
+        await player.setFilePath(_outputPath);
+        player.play();
+      },
+      child: const Text('Start'),
+    );
+  }
+
+  SizedBox _buildDuration() {
+    return SizedBox(
+      width: 300,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('${duration ?? Duration.zero}'),
+          Text('${player.duration ?? Duration.zero}'),
+        ],
+      ),
+    );
+  }
+
+  SizedBox _buildIndicator() {
+    return SizedBox(
+      width: 300,
+      child: LinearProgressIndicator(
+        minHeight: 20,
+        color: Colors.green,
+        backgroundColor: Colors.green.withOpacity(0.3),
+        value: (duration?.inMilliseconds ?? 0) /
+            (player.duration?.inMilliseconds ?? 1),
       ),
     );
   }
